@@ -35,31 +35,43 @@ public class ManyIdeasCore extends AbstractMod {
 	
 	@Override
 	protected void initMod() {
+		// 1. These are required on BOTH sides (Server and Client)
+		ModBlocksRegisterFactory modBlocksRegisterFactory = registerEventHandler(new ModBlocksRegisterFactory());
+		registerEventHandler(new ModArgumentTypesRegisterFactory());
+		registerEventHandler(new ModCommandsRegisterFactory());
+		ModItemsRegisterFactory modItemsRegisterFactory = registerEventHandler(new ModItemsRegisterFactory());
 		
-		ClientConfig clientConfig = registerConfig( ClientConfig::new );
-		ModBlocksRegisterFactory modBlocksRegisterFactory = registerEventHandler( new ModBlocksRegisterFactory() );
-		ModDebugBlocksRegisterFactory modDebugBlocksRegisterFactory = registerEventHandler(
-			new ModDebugBlocksRegisterFactory( clientConfig )
-		);
-		registerEventHandler( new ModArgumentTypesRegisterFactory() );
-		registerEventHandler( new ModCommandsRegisterFactory() );
-		ModItemsRegisterFactory modItemsRegisterFactory = registerEventHandler( new ModItemsRegisterFactory() );
-		registerEventHandler( new ModCreativeModeTabRegisterFactory(
-			clientConfig,
-			modBlocksRegisterFactory,
-			modDebugBlocksRegisterFactory,
-			modItemsRegisterFactory
-		) );
-		registerEventHandler( new ModIngredientSerializersRegisterFactory( this ) );
-		registerEventHandler( new ModRecipeSerializersRegisterFactory() );
-		registerEventHandler( new ModRecipeTypesRegisterFactory() );
-		registerEventHandler( Network.getInstance() );
-		DistExecutor.safeRunWhenOn(
-			Dist.CLIENT,
+		registerEventHandler(new ModIngredientSerializersRegisterFactory(this));
+		registerEventHandler(new ModRecipeSerializersRegisterFactory());
+		registerEventHandler(new ModRecipeTypesRegisterFactory());
+		registerEventHandler(Network.getInstance());
+
+		// 2. These should only run on the CLIENT (Fixed code)
+		DistExecutor.unsafeRunForDist(
 			() -> () -> {
+				// Load Client Config only on Client
+				ClientConfig clientConfig = registerConfig(ClientConfig::new);
+
+				// Register Debug Blocks only on Client
+				ModDebugBlocksRegisterFactory modDebugBlocksRegisterFactory = registerEventHandler(
+					new ModDebugBlocksRegisterFactory(clientConfig)
+				);
+
+				// Register Creative Tabs only on Client
+				registerEventHandler(new ModCreativeModeTabRegisterFactory(
+					clientConfig,
+					modBlocksRegisterFactory,
+					modDebugBlocksRegisterFactory,
+					modItemsRegisterFactory
+				));
+
+				// Handle Player Decorations
 				PlayerDecorationManager playerDecorationManager = new PlayerDecorationManager();
-				forgeEventBus().addListener( playerDecorationManager::handlePreRenderPlayerEvent );
-				modEventBus().addListener( playerDecorationManager::handleFMLClientSetupEvent );
+				forgeEventBus().addListener(playerDecorationManager::handlePreRenderPlayerEvent);
+				modEventBus().addListener(playerDecorationManager::handleFMLClientSetupEvent);
+			},
+			() -> () -> {
+				// On Server side, we do nothing for these features
 			}
 		);
 	}
